@@ -1,0 +1,46 @@
+---
+- name: Log rotation for /var/log
+  hosts: "{{ host }}"
+  become: yes
+  gather_facts: yes
+
+  vars:
+    logrotate_conf_path: /etc/logrotate.d/rotate_log
+
+  tasks:
+
+    - name: Create logrotate config for logs
+      copy:
+        dest: "{{ logrotate_conf_path }}"
+        content: |
+          /var/log/messages
+          /var/log/secure
+          /var/log/maillog
+          /var/log/cron
+          /var/log/spooler
+          /var/log/audit/audit.log {
+              weekly
+              rotate 4
+              size 50M
+              missingok
+              notifempty
+              compress
+              delaycompress
+              create 0640 root utmp
+              postrotate
+                  /bin/systemctl reload rsyslog > /dev/null 2>/dev/null || true
+              endscript
+          }
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Run logrotate dry-run (debug mode)
+      command: logrotate -d /etc/logrotate.conf
+      register: logrotate_dryrun
+      ignore_errors: yes
+
+    - name: Show dry-run result (for audit or logs)
+      debug:
+        var: logrotate_dryrun.stdout_lines
+
