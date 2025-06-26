@@ -1,0 +1,47 @@
+---
+- name: Install and configure Chrony
+  hosts: all
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+
+  tasks:
+    - name: Check if chrony is installed
+      command: rpm -q chrony
+      register: chrony_installed
+      ignore_errors: yes
+
+    - name: Install chrony if not already installed
+      yum:
+        name: chrony
+        state: present
+      when: chrony_installed.rc != 0
+
+    - name: Updating chrony configuration with correct NTP sources
+      lineinfile:
+        path: /etc/chrony.conf
+        regexp: '^server '
+        line: 'server 0.pool.ntp.org iburst'
+        state: present
+      notify:
+        - Restart chronyd
+
+    - name: Restart chronyd service
+      service:
+        name: chronyd
+        state: restarted
+        enabled: yes
+      when: chrony_installed.rc == 0
+
+    - name: Ensuring chronyd is enabled on bootup
+      service:
+        name: chronyd
+        enabled: yes
+        state: started
+      when: chrony_installed.rc == 0
+
+  handlers:
+    - name: Restart chronyd
+      service:
+        name: chronyd
+        state: restarted
