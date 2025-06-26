@@ -1,0 +1,33 @@
+---
+- name: Run all playbooks in sequence
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Disable Unnecessary Services
+      import_playbook: playbooks/Disable_Unnecessary_Services.yml
+
+    - name: Check Disk Usage and Send Alerts
+      import_playbook: playbooks/Disk_Alerts.yml
+
+    - name: Configure Kernel Randomization
+      import_playbook: playbooks/Kernel_Randomization.yml
+
+    - name: Configure Password Policy
+      import_playbook: playbooks/Password_Policy.yml
+
+    - name: Check Password Quality
+      import_playbook: playbooks/Password_quality.yml
+
+    - name: Apply Redhat Server Patching with Space Verification
+      import_playbook: playbooks/Rehdat_Server_patching_with_space_verification.yml
+
+    - name: Set Run Level 3
+      import_playbook: playbooks/Run_level_3.yml
+
+    - name: Enforce SELinux
+      import_playbook: playbooks/SElinux_enfroce.yml
+
+    - name: Configure SSH Settings
+      import_playbook: playbooks/SSH_Configuration.yml
