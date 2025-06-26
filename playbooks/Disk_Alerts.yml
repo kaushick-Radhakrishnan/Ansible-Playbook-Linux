@@ -1,0 +1,47 @@
+---
+- name: Manage Disk Space Utilization
+  hosts: hogtg
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  vars:
+    # Email Configuration
+    smtp_host: "122.98.226.21"
+    smtp_port: 25
+    from_email: "space_utilization-Alert@platforms.com"
+    to_email: "Kaushick.Radhakrishnan@example.com"
+    cc_email: "Team@example.com"
+    threshold: 70
+
+  tasks:
+    - name: Check disk space usage (excluding tmpfs)
+      command: df -h --exclude-type=tmpfs --output=source,pcent
+      register: disk_usage
+      changed_when: false
+
+    - name: Filter filesystems exceeding the threshold
+      set_fact:
+        alert_filesystems: "{{ disk_usage.stdout_lines | select('match', '^[^ ]+ +[0-9]+%$') | map('split', ' ') | selectattr('1', 'search', '^([7-9][0-9]|100)%$') | list }}"
+
+    - name: Send email if disk space exceeds threshold
+      mail:
+        host: "{{ smtp_host }}"
+        port: "{{ smtp_port }}"
+        from: "{{ from_email }}"
+        to: "{{ to_email }}"
+        cc: "{{ cc_email }}"
+        subject: "Disk Space Alert - {{ ansible_hostname }}"
+        body: |
+          Hi Team,
+
+          The following filesystem(s) on {{ ansible_hostname }} have exceeded the {{ threshold }}% disk usage:
+
+          {% for item in alert_filesystems %}
+            - {{ item[0] }}: {{ item[1] }}
+          {% endfor %}
+
+          Please address this issue.
+
+          Regards,
+          Automation-Team
+      when: alert_filesystems | length > 0

@@ -1,0 +1,86 @@
+---
+- name: Full Pre-Patch, Upgrade, and Post-Patch Information (RedHat Only) with Space Check
+  hosts: all
+  become: yes
+  gather_facts: yes
+  vars:
+    # Email Configuration
+    smtp_host: "122.98.226.21"
+    smtp_port: 25
+    from_email: "Alert@platforms.com"
+    to_email: "Kaushick.Radhakrishnan@example.com"
+    cc_email: "Team@example.com"
+
+
+  tasks:
+    # 1: Check if /var has at least 2 GB free space
+    - name: Check if /var has at least 2 GB free space
+      ansible.builtin.shell: "df /var --output=avail -h | tail -n 1 | sed 's/[A-Za-z]//g'"
+      register: var_free_space
+      changed_when: false
+
+    - name: Fail if /var has less than 2 GB free space
+      ansible.builtin.fail:
+        msg: "/var does not have at least 2 GB of free space. Aborting playbook."
+      when: var_free_space.stdout | int < 2048
+
+    # 2: Run pre-patch information commands and capture details
+    - name: Run pre-patch information commands
+      ansible.builtin.shell: |
+        echo "DNS entry: $(cat /etc/resolv.conf)"
+        echo "NTP Status: $(ntpstat)"
+        echo "VM or Discrete: $(dmidecode -t 1 | grep -i Product)"
+        echo "OS Filesystem Details: $(df -TH)"
+        echo "Number of OS filesystems: $(df -h -t xfs -t ext4 | tail -n +2 | wc -l)"
+        echo "Number of NFS filesystems: $(df -h -t nfs | tail -n +2 | wc -l)"
+        cat /etc/fstab | grep -v 'f'
+        echo "Latest Kernel: $(uname -r)"
+        echo -e "Verifying if Patches installed are current date:\n$(rpm -qa --last | head -n 3)"
+      register: prepatch_info
+      ignore_errors: yes
+
+    - name: Display pre-patch information
+      ansible.builtin.debug:
+        var: prepatch_info.stdout_lines
+
+    # 3: Save pre-patch information to /tmp
+    - name: Save pre-patch information to /tmp/pre-patch
+      ansible.builtin.copy:
+        content: "{{ prepatch_info.stdout_lines | join('\n') }}"
+        dest: /tmp/pre-patch
+        mode: '0666'
+
+    # 4: Upgrade all packages to the latest version (RHEL/CentOS)
+    - name: Upgrade all packages (RHEL/CentOS)
+      ansible.builtin.yum:
+        name: "*"
+        state: latest
+
+    # 5: Run post-patch information commands
+    - name: Run post-patch information commands
+      ansible.builtin.shell: |
+        echo "DNS entry: $(cat /etc/resolv.conf)"
+        echo "NTP Status: $(ntpstat)"
+        echo "VM or Discrete: $(dmidecode -t 1 | grep -i Product)"
+        echo "OS Filesystem Details: $(df -TH)"
+        echo "Number of OS filesystems: $(df -h -t xfs -t ext4 | tail -n +2 | wc -l)"
+        echo "Number of NFS filesystems: $(df -h -t nfs | tail -n +2 | wc -l)"
+        cat /etc/fstab | grep -v 'f'
+        echo "Latest Kernel: $(uname -r)"
+        echo -e "Verifying if Patches installed are current date:\n$(rpm -qa --last | head -n 3)"
+      register: postpatch_info
+      ignore_errors: yes
+
+    # 6: Save post-patch information to /tmp/post-patch
+    - name: Save post-patch information to /tmp/post-patch
+      ansible.builtin.copy:
+        content: "{{ postpatch_info.stdout_lines | join('\n') }}"
+        dest: /tmp/post-patch
+        mode: '0666'
+
+    # 7: Reboot the system after patching
+    - name: Reboot the system
+      ansible.builtin.reboot:
+        reboot_timeout: 120
+        test_command: "whoami"
+      ignore_errors: yes

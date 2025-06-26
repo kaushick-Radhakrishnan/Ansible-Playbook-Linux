@@ -1,0 +1,33 @@
+---
+- name: Disable unnecessary services
+  hosts: "{{ host }}"
+  become: yes
+  become_method: sudo
+  gather_facts: no
+  tasks:
+    - name: Disable services if enabled
+      shell: |
+        if systemctl is-enabled --quiet {{ item }}; then
+          systemctl stop {{ item }}; systemctl disable {{ item }};
+          echo "Disabled {{ item }}";
+        fi
+      register: output
+      changed_when: "'Disabled' in output.stdout"
+      loop:
+        - anacron
+        - atd
+        - autofs
+        - avahi-daemon
+        - bluetooth
+        - bind
+        - cups
+        - mdmonitor
+        - rlogin
+        - telnet
+        - vstfpo
+        - netfs
+        - nfslock
+        - rdsosd
+        - rpcidmapd
+        - ypbind
+        - portmap

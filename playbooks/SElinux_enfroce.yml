@@ -1,0 +1,22 @@
+---
+- name: Ensure SELinux is in Enforcing mode
+  hosts: "{{ host }}"
+  become: yes
+  become_method: sudo
+  gather_facts: yes
+  tasks:
+    - name: Check SELinux status
+      command: sestatus
+      register: selinux_status
+      changed_when: false
+
+    - name: Set SELinux mode to Enforcing if not already
+      command: setenforce 1
+      when: selinux_status.stdout.find("Enforcing") == -1
+
+    - name: Ensure SELinux is enabled on boot
+      lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: 'SELINUX=enforcing'
+        state: present

@@ -1,0 +1,14 @@
+---
+- name: Ensure kernel.randomize_va_space is set
+  hosts: "{{ host }}"
+  become: yes
+  become_method: sudo
+  gather_facts: no
+  tasks:
+    - name: Ensure kernel.randomize_va_space is set to 1
+      sysctl:
+        name: kernel.randomize_va_space
+        value: '1'
+        state: present
+        reload: true
+      ignore_errors: true
